@@ -33,7 +33,7 @@ def read_books_from_csv(csv_path: str) -> List[Dict]:
                 'title': row.get('title') or row.get('Title'),
                 'description': row.get('description') or row.get('Description'),
                 'authors': row.get('authors') or row.get('author') or row.get('Author'),
-                'genres': row.get('genres') or row.get('categories') or row.get('subjects'),
+                'genres': row.get('genres') or row.get('genre') or row.get('categories') or row.get('subjects'),
                 'publish_date': row.get('publish_date') or row.get('published') or row.get('year')
             }
             books.append(book)
