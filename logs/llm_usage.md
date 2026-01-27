@@ -598,5 +598,3 @@ Use tables, code blocks, and clear hierarchy for readability.
 4. RESTful API design principles
 5. Database indexing for performance
 6. Rate limiting etiquette for external APIs
-
-**Transparency Note:** All responses shown above are representative of the actual assistance received. Code was not directly copy-pasted but rather understood and reimplemented with custom modifications for this specific project.
