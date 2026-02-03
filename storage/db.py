@@ -6,6 +6,7 @@ import sqlite3
 import os
 from pathlib import Path
 from typing import List, Dict, Optional
+import fire
 
 
 class BookDatabase:
@@ -143,3 +144,5 @@ if __name__ == "__main__":
     with BookDatabase() as db:
         db.create_schema()
         print(f"Statistics: {db.get_statistics()}")
+    
+    fire.Fire(BookDatabase)

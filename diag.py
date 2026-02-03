@@ -5,6 +5,7 @@ Run this to see what's actually in your CSV files
 
 import pandas as pd
 import sys
+import fire 
 
 def diagnose_csv(csv_path):
     """Diagnose CSV file structure and content."""
@@ -114,3 +115,5 @@ if __name__ == "__main__":
     print("  2. Update your ingestion code to use the correct column name")
     print("  3. If columns are misaligned, you may need to fix the CSV file itself")
     print()
+
+    fire.Fire({"diagnose_csv": diagnose_csv})
