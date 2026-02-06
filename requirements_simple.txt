@@ -1,0 +1,4 @@
+# Minimal dependencies for simple keyword search version
+streamlit==1.31.0
+pandas==2.2.1
+
