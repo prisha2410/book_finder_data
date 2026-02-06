@@ -1,15 +1,15 @@
-fastapi==0.110.0
-uvicorn==0.27.1
-pydantic==2.6.4
+# Core
+pip>=25.0
+setuptools>=75.0
+wheel
 
-sentence-transformers==2.6.1
-faiss-cpu==1.9.0.post1
+# NumPy – must be latest dev-compatible
+numpy>=2.1.0
 
-numpy==1.26.4
-pandas==2.2.1
-scikit-learn==1.4.1.post1
+# Pandas – try newest only
+pandas>=2.2.0
 
-fire==0.6.0
-beautifulsoup4==4.12.3
-requests==2.31.0
-lxml==5.1.0
+# Cython – REQUIRED
+cython>=3.0.10
+
+# Avoid scipy stack if possible
