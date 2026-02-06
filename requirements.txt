@@ -1,15 +1,10 @@
-# Core
 pip>=25.0
 setuptools>=75.0
 wheel
 
-# NumPy – must be latest dev-compatible
 numpy>=2.1.0
-
-# Pandas – try newest only
-pandas>=2.2.0
-
-# Cython – REQUIRED
+pandas>=3.0.0
 cython>=3.0.10
 
-# Avoid scipy stack if possible
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
