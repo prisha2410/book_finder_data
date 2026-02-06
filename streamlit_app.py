@@ -1,25 +1,23 @@
 """
-📚 Book Finder - Semantic Search
-Streamlit app for intelligent book recommendations
+📚 Book Finder - Simple Search
+Streamlit app for book search (lightweight version)
 """
 
 import streamlit as st
 import sqlite3
 import pandas as pd
 from pathlib import Path
-import sys
-import os
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-# Try to import search engine
+# Semantic search is optional
+SEARCH_AVAILABLE = False
 try:
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from search.semantic_search import SemanticSearchEngine
     SEARCH_AVAILABLE = True
-except ImportError:
-    SEARCH_AVAILABLE = False
-    st.warning("⚠️ Semantic search not available. Install: pip install sentence-transformers scikit-learn")
+except:
+    pass  # Fall back to keyword search
 
 # Page config
 st.set_page_config(
@@ -109,26 +107,47 @@ def search_books_simple(query, limit=20):
         sql_query = """
             SELECT isbn, title, description, authors, genres, publish_date
             FROM books
-            WHERE title LIKE ? OR description LIKE ? OR authors LIKE ?
+            WHERE title LIKE ? OR description LIKE ? OR authors LIKE ? OR genres LIKE ?
             ORDER BY 
                 CASE 
                     WHEN title LIKE ? THEN 1
-                    WHEN description LIKE ? THEN 2
-                    ELSE 3
-                END
+                    WHEN authors LIKE ? THEN 2
+                    WHEN description LIKE ? THEN 3
+                    ELSE 4
+                END,
+                created_at DESC
             LIMIT ?
         """
         pattern = f"%{query}%"
-        title_pattern = f"%{query}%"
         df = pd.read_sql_query(
             sql_query, 
             conn, 
-            params=(pattern, pattern, pattern, title_pattern, title_pattern, limit)
+            params=(pattern, pattern, pattern, pattern, pattern, pattern, pattern, limit)
         )
         conn.close()
         return df.to_dict('records')
     except Exception as e:
         st.error(f"Search error: {e}")
+        return []
+
+def get_random_books(limit=20):
+    """Get random books for discovery."""
+    if not Path(DB_PATH).exists():
+        return []
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        sql = """
+            SELECT isbn, title, description, authors, genres, publish_date
+            FROM books
+            WHERE description IS NOT NULL
+            ORDER BY RANDOM()
+            LIMIT ?
+        """
+        df = pd.read_sql_query(sql, conn, params=(limit,))
+        conn.close()
+        return df.to_dict('records')
+    except:
         return []
 
 def display_book(book, show_score=False):
@@ -206,7 +225,7 @@ def main():
         )
     
     # Main content
-    tab1, tab2, tab3 = st.tabs(["🔍 Search", "📖 Browse", "ℹ️ Help"])
+    tab1, tab2, tab3 = st.tabs(["🔍 Search", "🎲 Discover", "ℹ️ Help"])
     
     with tab1:
         st.header("Search for Books")
@@ -243,20 +262,15 @@ def main():
             st.warning("Please enter a search query")
     
     with tab2:
-        st.header("Browse Recent Books")
+        st.header("Discover Random Books")
+        st.markdown("Not sure what to look for? Explore our collection!")
         
-        browse_limit = st.select_slider(
-            "Number of books to show",
-            options=[10, 20, 50, 100],
-            value=20
-        )
-        
-        if st.button("Load Books"):
+        if st.button("🎲 Show Random Books", use_container_width=True):
             with st.spinner("Loading..."):
-                books = get_recent_books(limit=browse_limit)
+                books = get_random_books(limit=num_results)
             
             if books:
-                st.success(f"Showing {len(books)} books")
+                st.success(f"Showing {len(books)} random books")
                 st.divider()
                 
                 for book in books:

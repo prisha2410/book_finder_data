@@ -1,21 +1,10 @@
-# Core API
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-
-# ML / Semantic Search
-torch==2.2.2
-sentence-transformers==2.6.1
-transformers==4.38.2
-scikit-learn==1.4.1.post1
-numpy==1.26.4
-
-# Data handling
+# Minimal dependencies - keyword search only
+streamlit==1.31.0
 pandas==2.2.1
 
-# Parsing / scraping (used in your project)
-beautifulsoup4==4.12.3
-lxml==5.1.0
-
-# Utilities
-pydantic==2.6.4
-typing-extensions>=4.9.0
+# Optional: Uncomment for AI semantic search (adds ~500MB)
+# torch>=2.5.0
+# sentence-transformers==2.6.1
+# scikit-learn==1.4.1.post1
+# numpy==1.26.4
+# beautifulsoup4==4.12.3
