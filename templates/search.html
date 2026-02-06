@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Book Semantic Search</title>
+    <style>
+        body { font-family: Arial; margin: 40px; }
+        input { width: 300px; padding: 8px; }
+        button { padding: 8px 12px; }
+        .book { margin-top: 15px; padding: 10px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h2>📚 Semantic Book Search</h2>
+    <input type="text" id="query" placeholder="Search books...">
+    <button onclick="searchBooks()">Search</button>
+
+    <div id="results"></div>
+
+    <script>
+        async function searchBooks() {
+            const query = document.getElementById("query").value;
+            const res = await fetch(`/search?q=${query}`);
+            const books = await res.json();
+
+            const resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = "";
+
+            books.forEach(book => {
+                resultsDiv.innerHTML += `
+                    <div class="book">
+                        <h3>${book.title}</h3>
+                        <p>${book.description || ""}</p>
+                        <small>Score: ${book.similarity_score.toFixed(3)}</small>
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
