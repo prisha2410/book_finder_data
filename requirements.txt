@@ -8,3 +8,5 @@ cython>=3.0.10
 
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
+
+fire>=0.6.0
