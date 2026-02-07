@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Finder - AI-Powered Search</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        /* Header */
+        .header {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .logo {
+            color: white;
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+        
+        .stats-mini {
+            display: flex;
+            gap: 20px;
+            color: white;
+        }
+        
+        .stat-mini {
+            text-align: center;
+        }
+        
+        .stat-mini-number {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        
+        .stat-mini-label {
+            font-size: 0.8em;
+            opacity: 0.9;
+        }
+        
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab-button {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .tab-button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .tab-button.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        /* Tab Content */
+        .tab-content {
+            display: none;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: fadeIn 0.3s;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Search Tab */
+        .search-section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 18px 25px;
+            font-size: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.3s;
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+            margin-bottom: 15px;
+        }
+        
+        .search-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .example-queries {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .example-queries h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .example-tag {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid #e0e0e0;
+            font-size: 0.9em;
+        }
+        
+        .example-tag:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        /* Results */
+        #searchResults, #browseResults {
+            margin-top: 30px;
+        }
+        
+        .results-header {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .book-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+            transition: all 0.2s;
+        }
+        
+        .book-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .book-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+        
+        .book-title {
+            color: #2c3e50;
+            font-size: 1.3em;
+            font-weight: 600;
+            flex: 1;
+        }
+        
+        .match-score {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.9em;
+            white-space: nowrap;
+        }
+        
+        .book-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            font-size: 0.95em;
+            color: #6c757d;
+        }
+        
+        .book-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .book-description {
+            color: #495057;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .book-isbn {
+            color: #95a5a6;
+            font-size: 0.85em;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Error/Warning */
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert.show {
+            display: block;
+        }
+        
+        .alert-error {
+            background: #fff5f5;
+            border: 1px solid #fc8181;
+            color: #c53030;
+        }
+        
+        .alert-success {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            color: #166534;
+        }
+        
+        /* About Tab */
+        .about-section h3 {
+            color: #2c3e50;
+            margin: 30px 0 15px 0;
+        }
+        
+        .about-section p, .about-section li {
+            color: #495057;
+            line-height: 1.8;
+            margin-bottom: 10px;
+        }
+        
+        .about-section ul {
+            margin-left: 20px;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .feature-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .feature-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .code-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin: 15px 0;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .tab-content {
+                padding: 20px;
+            }
+            
+            .book-header {
+                flex-direction: column;
+            }
+            
+            .match-score {
+                align-self: flex-start;
+            }
+            
+            .stats-mini {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">📚 Book Finder</div>
+            <div class="stats-mini">
+                <div class="stat-mini">
+                    <div class="stat-mini-number" id="totalBooks">--</div>
+                    <div class="stat-mini-label">Total Books</div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-mini-number" id="indexedBooks">--</div>
+                    <div class="stat-mini-label">Indexed</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Container -->
+    <div class="container">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-button active" onclick="showTab('search')">🔍 Search</button>
+            <button class="tab-button" onclick="showTab('browse')">📚 Browse</button>
+            <button class="tab-button" onclick="showTab('about')">ℹ️ About</button>
+        </div>
+        
+        <!-- Search Tab -->
+        <div id="searchTab" class="tab-content active">
+            <div class="search-section">
+                <h2>🔍 Search Books</h2>
+                <p style="color: #6c757d; margin-bottom: 20px;">
+                    Describe what you're looking for in natural language. The AI understands context!
+                </p>
+                
+                <textarea 
+                    id="searchQuery" 
+                    class="search-input" 
+                    placeholder="Example: A thriller about artificial intelligence that questions what it means to be human..."
+                ></textarea>
+                
+                <button id="searchBtn" class="btn-primary" onclick="performSearch()">
+                    🔍 Search Books
+                </button>
+                
+                <div class="example-queries">
+                    <h3>💡 Try These:</h3>
+                    <span class="example-tag" onclick="setQuery('Books about machine learning for beginners')">Machine learning for beginners</span>
+                    <span class="example-tag" onclick="setQuery('Mystery novels with strong female detectives')">Mystery with female detective</span>
+                    <span class="example-tag" onclick="setQuery('Science fiction exploring AI ethics')">Sci-fi about AI ethics</span>
+                    <span class="example-tag" onclick="setQuery('Historical fiction set in World War II')">WWII historical fiction</span>
+                    <span class="example-tag" onclick="setQuery('Self-help books about productivity and focus')">Productivity & focus</span>
+                </div>
+                
+                <div id="searchLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Searching through thousands of books...</p>
+                </div>
+                
+                <div id="searchAlert" class="alert"></div>
+                
+                <div id="searchResults"></div>
+            </div>
+        </div>
+        
+        <!-- Browse Tab -->
+        <div id="browseTab" class="tab-content">
+            <div class="browse-section">
+                <h2>📚 Browse Collection</h2>
+                <p style="color: #6c757d; margin-bottom: 20px;">
+                    Explore recently added books in the collection
+                </p>
+                
+                <button id="browseBtn" class="btn-primary" onclick="browseBooks()">
+                    📚 Load Recent Books
+                </button>
+                
+                <div id="browseLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading books...</p>
+                </div>
+                
+                <div id="browseAlert" class="alert"></div>
+                
+                <div id="browseResults"></div>
+            </div>
+        </div>
+        
+        <!-- About Tab -->
+        <div id="aboutTab" class="tab-content">
+            <div class="about-section">
+                <h2>ℹ️ About Book Finder</h2>
+                <p>
+                    Book Finder is an AI-powered semantic search engine that helps you discover books 
+                    using natural language descriptions. Instead of searching by keywords, describe 
+                    what you're looking for and let the AI find the perfect match!
+                </p>
+                
+                <h3>✨ Features</h3>
+                <div class="feature-grid">
+                    <div class="feature-box">
+                        <div class="feature-icon">🤖</div>
+                        <h4>AI-Powered</h4>
+                        <p>Advanced semantic understanding using neural embeddings</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon">🎯</div>
+                        <h4>Hybrid Search</h4>
+                        <p>Combines semantic similarity with keyword matching</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon">⚡</div>
+                        <h4>Lightning Fast</h4>
+                        <p>Search results in under 100 milliseconds</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon">💬</div>
+                        <h4>Natural Language</h4>
+                        <p>Describe books like talking to a librarian</p>
+                    </div>
+                </div>
+                
+                <h3>🔧 Technology Stack</h3>
+                <ul>
+                    <li><strong>Backend:</strong> FastAPI (Python web framework)</li>
+                    <li><strong>Database:</strong> SQLite (lightweight, file-based)</li>
+                    <li><strong>Search Engine:</strong> Sentence Transformers (all-MiniLM-L6-v2)</li>
+                    <li><strong>ML Framework:</strong> PyTorch</li>
+                    <li><strong>Ranking:</strong> Scikit-learn (cosine similarity + TF-IDF)</li>
+                </ul>
+                
+                <h3>🚀 API Endpoints</h3>
+                <p>This application provides a RESTful API that you can use:</p>
+                
+                <div class="code-block">
+GET  /api/books          - Get recent books
+GET  /api/books/{isbn}   - Get book by ISBN
+POST /api/search         - Semantic search
+GET  /api/stats          - Database statistics
+POST /api/rebuild-index  - Rebuild search index
+                </div>
+                
+                <h3>📊 How It Works</h3>
+                <ol>
+                    <li><strong>Embedding Generation:</strong> Book descriptions are converted to 384-dimensional vectors using a pre-trained neural network</li>
+                    <li><strong>Query Processing:</strong> Your search query is converted to the same vector space</li>
+                    <li><strong>Similarity Matching:</strong> Cosine similarity finds books with similar semantic meaning</li>
+                    <li><strong>Hybrid Ranking:</strong> Results are re-ranked combining semantic (70%) and keyword (30%) scores</li>
+                    <li><strong>Results Display:</strong> Top matches are returned with similarity scores</li>
+                </ol>
+                
+                <h3>💡 Tips for Better Results</h3>
+                <ul>
+                    <li>Be descriptive - more details lead to better matches</li>
+                    <li>Use natural language - write like you're talking to a friend</li>
+                    <li>Include topics, themes, or moods you're interested in</li>
+                    <li>Mention difficulty level (beginner, advanced, etc.) if relevant</li>
+                    <li>Try different phrasings if you don't find what you want</li>
+                </ul>
+                
+                <h3>📈 Database Statistics</h3>
+                <p id="detailedStats">Loading statistics...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Tab switching
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load data for specific tabs
+            if (tabName === 'browse' && !document.getElementById('browseResults').innerHTML) {
+                browseBooks();
+            }
+            if (tabName === 'about') {
+                loadDetailedStats();
+            }
+        }
+        
+        // Load header stats
+        async function loadHeaderStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                const totalBooks = data.database?.total_books || 0;
+                const indexedBooks = data.search_engine?.total_books || 0;
+                
+                document.getElementById('totalBooks').textContent = totalBooks.toLocaleString();
+                document.getElementById('indexedBooks').textContent = indexedBooks.toLocaleString();
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        // Load detailed stats for About tab
+        async function loadDetailedStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                const db = data.database || {};
+                const search = data.search_engine || {};
+                
+                const statsHTML = `
+                    <strong>Database:</strong><br>
+                    • Total books: ${(db.total_books || 0).toLocaleString()}<br>
+                    • Books with descriptions: ${(db.books_with_descriptions || 0).toLocaleString()}<br>
+                    • Database size: ${(db.database_size_mb || 0).toFixed(2)} MB<br><br>
+                    
+                    <strong>Search Engine:</strong><br>
+                    • Indexed books: ${(search.total_books || 0).toLocaleString()}<br>
+                    • Embedding dimensions: ${search.embedding_dimension || 0}<br>
+                    • Model: ${search.model_name || 'Not loaded'}<br>
+                    • Status: ${search.indexed ? '✅ Ready' : '⚠️ Not indexed'}
+                `;
+                
+                document.getElementById('detailedStats').innerHTML = statsHTML;
+            } catch (error) {
+                document.getElementById('detailedStats').textContent = 'Error loading statistics';
+            }
+        }
+        
+        // Set query from example
+        function setQuery(query) {
+            document.getElementById('searchQuery').value = query;
+            performSearch();
+        }
+        
+        // Search books
+        async function performSearch() {
+            const query = document.getElementById('searchQuery').value.trim();
+            
+            if (!query) {
+                showAlert('searchAlert', 'Please enter a search query', 'error');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('searchLoading').classList.add('show');
+            document.getElementById('searchResults').innerHTML = '';
+            document.getElementById('searchAlert').classList.remove('show');
+            document.getElementById('searchBtn').disabled = true;
+            
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: query,
+                        top_k: 20,
+                        semantic_weight: 0.7,
+                        keyword_weight: 0.3
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Search failed');
+                }
+                
+                const data = await response.json();
+                displaySearchResults(data);
+                
+            } catch (error) {
+                showAlert('searchAlert', error.message, 'error');
+            } finally {
+                document.getElementById('searchLoading').classList.remove('show');
+                document.getElementById('searchBtn').disabled = false;
+            }
+        }
+        
+        // Display search results
+        function displaySearchResults(data) {
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (data.count === 0) {
+                resultsDiv.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #6c757d;">
+                        <h3>No results found</h3>
+                        <p>Try a different query or be more descriptive</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <div class="results-header">
+                    Found ${data.count} results in ${data.search_time_ms.toFixed(0)}ms
+                </div>
+            `;
+            
+            data.results.forEach((book, index) => {
+                html += createBookCard(book, index, true);
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        // Browse books
+        async function browseBooks() {
+            document.getElementById('browseLoading').classList.add('show');
+            document.getElementById('browseResults').innerHTML = '';
+            document.getElementById('browseAlert').classList.remove('show');
+            document.getElementById('browseBtn').disabled = true;
+            
+            try {
+                const response = await fetch('/api/books?limit=50');
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load books');
+                }
+                
+                const data = await response.json();
+                displayBrowseResults(data.books);
+                
+            } catch (error) {
+                showAlert('browseAlert', error.message, 'error');
+            } finally {
+                document.getElementById('browseLoading').classList.remove('show');
+                document.getElementById('browseBtn').disabled = false;
+            }
+        }
+        
+        // Display browse results
+        function displayBrowseResults(books) {
+            const resultsDiv = document.getElementById('browseResults');
+            
+            if (books.length === 0) {
+                resultsDiv.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #6c757d;">
+                        <h3>No books found</h3>
+                        <p>The database appears to be empty</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <div class="results-header">
+                    Showing ${books.length} recent books
+                </div>
+            `;
+            
+            books.forEach((book, index) => {
+                html += createBookCard(book, index, false);
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        // Create book card HTML
+        function createBookCard(book, index, showScore) {
+            const description = book.description && book.description.length > 400 
+                ? book.description.substring(0, 400) + '...' 
+                : book.description;
+            
+            return `
+                <div class="book-card">
+                    <div class="book-header">
+                        <div class="book-title">${escapeHtml(book.title)}</div>
+                        ${showScore ? `
+                            <div class="match-score">
+                                ${(book.similarity_score * 100).toFixed(1)}% Match
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="book-meta">
+                        ${book.authors ? `<span>👤 ${escapeHtml(book.authors)}</span>` : ''}
+                        ${book.genres ? `<span>🏷️ ${escapeHtml(book.genres)}</span>` : ''}
+                        ${book.publish_date ? `<span>📅 ${escapeHtml(book.publish_date)}</span>` : ''}
+                    </div>
+                    
+                    ${description ? `
+                        <div class="book-description">${escapeHtml(description)}</div>
+                    ` : ''}
+                    
+                    <div class="book-isbn">
+                        ISBN: ${escapeHtml(book.isbn)}
+                        ${showScore && book.semantic_score ? `
+                            <span style="margin-left: 15px; color: #6c757d;">
+                                Semantic: ${(book.semantic_score * 100).toFixed(0)}% • 
+                                Keyword: ${(book.keyword_score * 100).toFixed(0)}%
+                            </span>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Show alert
+        function showAlert(elementId, message, type) {
+            const alert = document.getElementById(elementId);
+            alert.textContent = message;
+            alert.className = 'alert alert-' + type + ' show';
+        }
+        
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Ctrl+Enter to search
+        document.getElementById('searchQuery').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                performSearch();
+            }
+        });
+        
+        // Load stats on page load
+        loadHeaderStats();
+    </script>
+</body>
+</html>

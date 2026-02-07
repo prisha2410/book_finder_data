@@ -1,88 +1,165 @@
 """
-FastAPI service for serving book data + semantic search UI.
+Simplified FastAPI app - Single page application
+Serves one HTML page that does everything: search, browse, stats
 """
 
+import sys
 import os
+import time
+from pathlib import Path
+from typing import List, Dict
+
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from typing import List, Dict, Optional
-from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+# ======================================================
+# PROJECT ROOT (DO NOT CHANGE DIRECTORY STRUCTURE)
+# ======================================================
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR))
+
+# ======================================================
+# IMPORT PIPELINE COMPONENTS
+# ======================================================
 
 from storage.db import BookDatabase
 from ingestion.ingest_books import ingest_all_books
 from transformation.clean_books import clean_all_books
-from search.semantic_search import SemanticSearchEngine
 
+# ======================================================
+# OPTIONAL SEARCH ENGINE
+# ======================================================
 
-# -------------------- Paths --------------------
+SEARCH_AVAILABLE = False
+search_engine = None
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+try:
+    from search.semantic_search import SemanticSearchEngine
+    SEARCH_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ Semantic search not available: {e}")
 
-
-# -------------------- App Setup --------------------
+# ======================================================
+# FASTAPI SETUP
+# ======================================================
 
 app = FastAPI(
-    title="Book Finder Data API",
-    description="API for accessing cleaned book data and semantic search",
-    version="1.0.0"
+    title="Book Finder",
+    description="AI-powered semantic book search",
+    version="3.0.0"
 )
 
-print("🔍 Loading semantic search engine...")
-search_engine = SemanticSearchEngine()
-print("✅ Search engine ready!")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ======================================================
+# TEMPLATES (FIXED)
+# ======================================================
+
+templates = Jinja2Templates(
+    directory=str(BASE_DIR / "templates")
+)
+
+# ======================================================
+# MODELS
+# ======================================================
+
+class SearchQuery(BaseModel):
+    query: str
+    top_k: int = Field(20, ge=1, le=50)
+    semantic_weight: float = 0.7
+    keyword_weight: float = 0.3
+
+# ======================================================
+# SEARCH INITIALIZATION
+# ======================================================
+
+def init_search_engine():
+    global search_engine
+
+    if not SEARCH_AVAILABLE:
+        return None
+
+    try:
+        print("🔍 Loading search engine...")
+        engine = SemanticSearchEngine()
+        stats = engine.get_statistics()
+
+        if stats.get("indexed"):
+            print(f"✅ Search ready: {stats['total_books']} books indexed")
+        else:
+            print("⚠️ Search index not built")
+
+        return engine
+    except Exception as e:
+        print(f"⚠️ Search init failed: {e}")
+        return None
 
 
-# -------------------- Models --------------------
+search_engine = init_search_engine()
 
-class Book(BaseModel):
-    isbn: str
-    title: str
-    description: Optional[str]
-    authors: Optional[str]
-    genres: Optional[str]
-    publish_date: Optional[str]
-    created_at: str
+# ======================================================
+# ROUTES
+# ======================================================
 
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request}
+    )
 
-class BooksResponse(BaseModel):
-    count: int
-    books: List[Dict]
-
-
-class SyncResponse(BaseModel):
-    status: str
-    message: str
-    books_added: int
-    books_updated: int
-
-
-# -------------------- Root --------------------
-
-@app.get("/")
-async def root():
+@app.get("/health")
+async def health():
     return {
-        "message": "Book Finder Data API",
-        "version": "1.0.0",
-        "endpoints": {
-            "/books": "Get recent books",
-            "/books/{isbn}": "Get book by ISBN",
-            "/search": "Semantic book search",
-            "/search-demo": "Web UI for search",
-            "/sync": "Trigger data sync",
-            "/stats": "Get database statistics",
-            "/docs": "API documentation"
-        }
+        "status": "healthy",
+        "search_indexed": (
+            search_engine.get_statistics().get("indexed", False)
+            if search_engine else False
+        )
     }
 
+# ======================================================
+# API ENDPOINTS
+# ======================================================
 
-# -------------------- Book Data --------------------
+@app.get("/api/stats")
+async def get_stats():
+    try:
+        with BookDatabase() as db:
+            db_stats = db.get_statistics()
 
-@app.get("/books", response_model=BooksResponse)
-async def get_books(
-    limit: int = Query(default=1000, ge=1, le=1000)
-):
+        search_stats = (
+            search_engine.get_statistics()
+            if search_engine
+            else {
+                "total_books": 0,
+                "embedding_dimension": 0,
+                "model_name": "not_loaded",
+                "indexed": False,
+            }
+        )
+
+        return {
+            "database": db_stats,
+            "search_engine": search_stats,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/books")
+async def get_books(limit: int = Query(50, ge=1, le=100)):
     try:
         with BookDatabase() as db:
             books = db.get_recent_books(limit=limit)
@@ -91,51 +168,86 @@ async def get_books(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/books/{isbn}")
+@app.get("/api/books/{isbn}")
 async def get_book(isbn: str):
     try:
         with BookDatabase() as db:
             book = db.get_book_by_isbn(isbn)
+
         if not book:
             raise HTTPException(status_code=404, detail="Book not found")
+
         return book
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# -------------------- Semantic Search --------------------
+@app.post("/api/search")
+async def search(query: SearchQuery):
+    if not search_engine:
+        raise HTTPException(
+            status_code=503,
+            detail="Search engine not initialized",
+        )
 
-@app.get("/search")
-async def semantic_search(q: str, top_k: int = 10):
+    start = time.time()
+
     try:
-        return search_engine.search(query=q, top_k=top_k)
+        results = search_engine.search(
+            query=query.query,
+            top_k=query.top_k,
+            semantic_weight=query.semantic_weight,
+            keyword_weight=query.keyword_weight,
+        )
+
+        return {
+            "query": query.query,
+            "count": len(results),
+            "results": results,
+            "search_time_ms": (time.time() - start) * 1000,
+        }
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# -------------------- Search UI --------------------
+@app.post("/api/rebuild-index")
+async def rebuild_index():
+    if not SEARCH_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Search dependencies not installed",
+        )
 
-@app.get("/search-demo", response_class=HTMLResponse)
-async def search_demo(request: Request):
-    return templates.TemplateResponse("search.html", {"request": request})
+    try:
+        with BookDatabase() as db:
+            books = db.get_recent_books(limit=100000)
+
+        if not books:
+            return {"status": "warning", "indexed": 0}
+
+        global search_engine
+        search_engine = SemanticSearchEngine()
+        search_engine.index_books(books, force_reindex=True)
+
+        stats = search_engine.get_statistics()
+
+        return {
+            "status": "success",
+            "indexed": stats["total_books"],
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# -------------------- Sync --------------------
-
-@app.post("/sync", response_model=SyncResponse)
+@app.post("/api/sync")
 async def sync_data():
     try:
         raw_books = ingest_all_books()
-        if not raw_books:
-            return {
-                "status": "warning",
-                "message": "No books found",
-                "books_added": 0,
-                "books_updated": 0
-            }
-
         cleaned_books = clean_all_books(raw_books)
 
         with BookDatabase() as db:
@@ -143,29 +255,45 @@ async def sync_data():
 
         return {
             "status": "success",
-            "message": "Sync completed",
             "books_added": inserted,
-            "books_updated": duplicates
+            "duplicates": duplicates,
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# -------------------- Stats --------------------
+# ======================================================
+# STARTUP LOGS
+# ======================================================
 
-@app.get("/stats")
-async def get_statistics():
+@app.on_event("startup")
+async def startup():
+    print("\n" + "=" * 70)
+    print(" Book Finder API ".center(70, "="))
+    print("=" * 70)
+
     try:
         with BookDatabase() as db:
             stats = db.get_statistics()
-        return {"database": "books.db", "statistics": stats}
+            print(f"📚 Database books: {stats['total_books']}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"⚠️ Database error: {e}")
+
+    if search_engine and search_engine.get_statistics().get("indexed"):
+        print("🔍 Semantic search ready")
+    else:
+        print("⚠️ Semantic search not indexed")
+
+    print("🌐 http://localhost:8000")
+    print("📘 http://localhost:8000/docs")
+    print("=" * 70 + "\n")
 
 
-# -------------------- Health --------------------
+# ======================================================
+# MAIN
+# ======================================================
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("api.app:app", host="0.0.0.0", port=8000, reload=True)
