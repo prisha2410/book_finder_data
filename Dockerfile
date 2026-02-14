@@ -17,4 +17,5 @@ COPY . .
 
 EXPOSE 7860
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
+# FIXED: Changed from "app:app" to "api.app:app"
+CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "7860"]

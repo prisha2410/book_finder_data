@@ -1,0 +1,55 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+
+# Virtual environments
+env/
+venv/
+.venv
+ENV/
+env.bak/
+venv.bak/
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Documentation (not needed in production)
+*.md
+docs/
+
+# Other
+.env
+.env.local
+*.bak
+*.tmp
