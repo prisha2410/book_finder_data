@@ -1,11 +1,12 @@
 """
-Simplified FastAPI app - Single page application
-Serves one HTML page that does everything: search, browse, stats
+Memory-Optimized FastAPI App with Semantic Search
+Works on Render FREE tier (under 512MB RAM)
 """
 
 import sys
 import os
 import time
+import gc
 from pathlib import Path
 from typing import List, Dict
 
@@ -15,42 +16,29 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-# ======================================================
-# PROJECT ROOT (DO NOT CHANGE DIRECTORY STRUCTURE)
-# ======================================================
-
+# Project root
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
-
-# ======================================================
-# IMPORT PIPELINE COMPONENTS
-# ======================================================
 
 from storage.db import BookDatabase
 from ingestion.ingest_books import ingest_all_books
 from transformation.clean_books import clean_all_books
 
-# ======================================================
-# OPTIONAL SEARCH ENGINE
-# ======================================================
-
+# Import OPTIMIZED search engine
 SEARCH_AVAILABLE = False
 search_engine = None
 
 try:
-    from search.semantic_search import SemanticSearchEngine
+    from search.semantic_search_optimized import MemoryOptimizedSearchEngine
     SEARCH_AVAILABLE = True
 except ImportError as e:
-    print(f"⚠️ Semantic search not available: {e}")
+    print(f"⚠️ Search not available: {e}")
 
-# ======================================================
-# FASTAPI SETUP
-# ======================================================
-
+# FastAPI
 app = FastAPI(
-    title="Book Finder",
-    description="AI-powered semantic book search",
-    version="3.0.0"
+    title="Book Finder (Memory Optimized)",
+    description="AI-powered book search - Optimized for Render Free Tier",
+    version="2.0.0-optimized"
 )
 
 app.add_middleware(
@@ -61,62 +49,51 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ======================================================
-# TEMPLATES (FIXED)
-# ======================================================
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-templates = Jinja2Templates(
-    directory=str(BASE_DIR / "templates")
-)
-
-# ======================================================
-# MODELS
-# ======================================================
-
+# Models
 class SearchQuery(BaseModel):
     query: str
     top_k: int = Field(20, ge=1, le=50)
     semantic_weight: float = 0.7
     keyword_weight: float = 0.3
 
-# ======================================================
-# SEARCH INITIALIZATION
-# ======================================================
-
+# Initialize search engine (LAZY LOAD)
 def init_search_engine():
+    """Initialize search engine with aggressive memory optimization."""
     global search_engine
 
     if not SEARCH_AVAILABLE:
         return None
 
     try:
-        print("🔍 Loading search engine...")
-        engine = SemanticSearchEngine()
+        print("🔍 Initializing memory-optimized search...")
+        engine = MemoryOptimizedSearchEngine()
+        
         stats = engine.get_statistics()
-
+        
         if stats.get("indexed"):
-            print(f"✅ Search ready: {stats['total_books']} books indexed")
+            print(f"✅ Search ready: {stats['total_books']} books")
+            print(f"✅ Memory optimized: float16, small model")
         else:
-            print("⚠️ Search index not built")
-
+            print("⚠️ No index found - will build on first search")
+        
+        # Force garbage collection
+        gc.collect()
+        
         return engine
     except Exception as e:
         print(f"⚠️ Search init failed: {e}")
         return None
 
+# Don't load search engine at startup - lazy load on first request
+# This saves ~100MB at startup
+search_engine = None
 
-search_engine = init_search_engine()
-
-# ======================================================
-# ROUTES
-# ======================================================
-
+# Routes
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/health")
 async def health():
@@ -125,12 +102,9 @@ async def health():
         "search_indexed": (
             search_engine.get_statistics().get("indexed", False)
             if search_engine else False
-        )
+        ),
+        "memory_optimized": True
     }
-
-# ======================================================
-# API ENDPOINTS
-# ======================================================
 
 @app.get("/api/stats")
 async def get_stats():
@@ -146,6 +120,7 @@ async def get_stats():
                 "embedding_dimension": 0,
                 "model_name": "not_loaded",
                 "indexed": False,
+                "memory_optimized": True
             }
         )
 
@@ -157,7 +132,6 @@ async def get_stats():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get("/api/books")
 async def get_books(limit: int = Query(50, ge=1, le=100)):
     try:
@@ -166,7 +140,6 @@ async def get_books(limit: int = Query(50, ge=1, le=100)):
         return {"count": len(books), "books": books}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.get("/api/books/{isbn}")
 async def get_book(isbn: str):
@@ -184,15 +157,22 @@ async def get_book(isbn: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.post("/api/search")
 async def search(query: SearchQuery):
-    if not search_engine:
-        raise HTTPException(
-            status_code=503,
-            detail="Search engine not initialized",
-        )
-
+    """Optimized search with lazy loading."""
+    global search_engine
+    
+    # Lazy load search engine on first use
+    if search_engine is None:
+        if not SEARCH_AVAILABLE:
+            raise HTTPException(503, "Search dependencies not installed")
+        
+        print("🔍 First search request - loading engine...")
+        search_engine = init_search_engine()
+        
+        if not search_engine:
+            raise HTTPException(503, "Search engine failed to initialize")
+    
     start = time.time()
 
     try:
@@ -202,6 +182,9 @@ async def search(query: SearchQuery):
             semantic_weight=query.semantic_weight,
             keyword_weight=query.keyword_weight,
         )
+
+        # Force garbage collection after search
+        gc.collect()
 
         return {
             "query": query.query,
@@ -213,14 +196,10 @@ async def search(query: SearchQuery):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.post("/api/rebuild-index")
 async def rebuild_index():
     if not SEARCH_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Search dependencies not installed",
-        )
+        raise HTTPException(503, "Search dependencies not installed")
 
     try:
         with BookDatabase() as db:
@@ -230,19 +209,22 @@ async def rebuild_index():
             return {"status": "warning", "indexed": 0}
 
         global search_engine
-        search_engine = SemanticSearchEngine()
+        search_engine = MemoryOptimizedSearchEngine()
         search_engine.index_books(books, force_reindex=True)
+
+        # Force garbage collection
+        gc.collect()
 
         stats = search_engine.get_statistics()
 
         return {
             "status": "success",
             "indexed": stats["total_books"],
+            "memory_optimized": True
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/api/sync")
 async def sync_data():
@@ -262,38 +244,29 @@ async def sync_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# ======================================================
-# STARTUP LOGS
-# ======================================================
-
 @app.on_event("startup")
 async def startup():
     print("\n" + "=" * 70)
-    print(" Book Finder API ".center(70, "="))
+    print(" Book Finder API (Memory Optimized) ".center(70, "="))
     print("=" * 70)
+    print("🔧 Optimized for Render FREE tier (<512MB RAM)")
+    print("⚡ Features: float16 embeddings, lazy loading, tiny model")
 
     try:
         with BookDatabase() as db:
             stats = db.get_statistics()
-            print(f"📚 Database books: {stats['total_books']}")
+            print(f"\n📚 Database books: {stats['total_books']}")
     except Exception as e:
         print(f"⚠️ Database error: {e}")
 
-    if search_engine and search_engine.get_statistics().get("indexed"):
-        print("🔍 Semantic search ready")
-    else:
-        print("⚠️ Semantic search not indexed")
-
-    print("🌐 http://localhost:8000")
-    print("📘 http://localhost:8000/docs")
+    print("🔍 Search: Lazy load (loads on first search request)")
+    print("\n🌐 http://localhost:7860")
+    print("📘 http://localhost:7860/docs")
     print("=" * 70 + "\n")
-
-
-# ======================================================
-# MAIN
-# ======================================================
+    
+    # Force garbage collection
+    gc.collect()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api.app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("api.app_optimized:app", host="0.0.0.0", port=7860, reload=True)
