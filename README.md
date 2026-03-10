@@ -2,6 +2,7 @@
 
 > A production-ready ETL pipeline that extracts, transforms, and loads book metadata from a 44-column enriched master CSV into a queryable SQLite database, designed to power ML-based semantic search applications.
 
+https://book-finder-djh2.onrender.com
 ---
 
 ## 🎯 Overview
