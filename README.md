@@ -485,6 +485,12 @@ python ingestion/ingest_books.py print_stats
 
 ---
 
+## 🙏 Special Thanks
+
+A big thank you to **[@megh39](https://github.com/megh39)** for helping with the dataset — this project wouldn't have been the same without your support!
+
+---
+
 ## 📝 LLM Usage
 
 All AI assistance is logged in [logs/llm_usage.md](logs/llm_usage.md).
